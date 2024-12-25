@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD de Matrículas com Upload Excel</title>
+</head>
+<body>
+
+    <h1>Gerenciamento de Matrículas</h1>
+
+    <!-- Formulário para adicionar/editar registros -->
+    <form id="form">
+        <input type="hidden" id="id" />
+        <label>Matrícula</label>
+        <input type="text" id="matricula" required>
+
+        <label>Nome</label>
+        <input type="text" id="nome" required>
+
+        <label>Status</label>
+        <select id="status">
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+        </select>
+
+        <button type="submit">Salvar</button>
+    </form>
+
+    <hr>
+
+    <!-- Formulário para upload de Excel -->
+    <h2>Upload de Arquivo Excel</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="file" name="file" accept=".xlsx, .xls" required>
+        <button type="submit">Enviar Excel</button>
+    </form>
+
+    <hr>
+
+    <!-- Tabela de Registros -->
+    <h2>Registros de Matrículas</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Matrícula</th>
+                <th>Nome</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+            <!-- Registros serão carregados aqui -->
+        </tbody>
+    </table>
+
+    <script>
+        const apiBaseUrl = 'http://localhost:3000/api/matriculas';
+        const uploadUrl = 'http://localhost:3000/read';
+
+        // Carregar registros ao iniciar
+        window.onload = fetchRecords;
+
+        // Obter registros da API (READ)
+        async function fetchRecords() {
+            const response = await fetch(apiBaseUrl);
+            const data = await response.json();
+
+            const tbody = document.getElementById('tbody');
+            tbody.innerHTML = ''; // Limpa a tabela antes de adicionar novos registros
+
+            data.forEach((item) => {
+                const row = `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.matricula}</td>
+                        <td>${item.nome}</td>
+                        <td>${item.status}</td>
+                        <td>
+                            <button onclick="editRecord(${item.id})">Editar</button>
+                            <button onclick="deleteRecord(${item.id})">Excluir</button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // Adicionar ou Editar registro
+        document.getElementById('form').onsubmit = async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('id').value;
+            const matricula = document.getElementById('matricula').value;
+            const nome = document.getElementById('nome').value;
+            const status = document.getElementById('status').value;
+
+            const data = { matricula, nome, status };
+
+            // Se o ID existir, faz update, se não, cria novo registro
+            if (id) {
+                await fetch(`${apiBaseUrl}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            } else {
+                await fetch(apiBaseUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            }
+
+            // Resetar formulário e recarregar tabela
+            e.target.reset();
+            fetchRecords();
+        };
+
+        // Preencher formulário para edição (EDIT)
+        async function editRecord(id) {
+            const response = await fetch(`${apiBaseUrl}/${id}`);
+            const record = await response.json();
+
+            document.getElementById('id').value = record.id;
+            document.getElementById('matricula').value = record.matricula;
+            document.getElementById('nome').value = record.nome;
+            document.getElementById('status').value = record.status;
+        }
+
+        // Excluir registro (DELETE)
+        async function deleteRecord(id) {
+            if (confirm('Tem certeza que deseja excluir este registro?')) {
+                await fetch(`${apiBaseUrl}/${id}`, {
+                    method: 'DELETE',
+                });
+                fetchRecords();
+            }
+        }
+
+        // Upload de Arquivo Excel
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const fileInput = document.getElementById('file');
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    alert('Arquivo enviado com sucesso!');
+                    fetchRecords();
+                } else {
+                    alert('Erro ao enviar o arquivo.');
+                }
+            } catch (error) {
+                alert('Erro ao processar o upload.');
+            }
+        };
+    </script>
+
+</body>
+</html>
